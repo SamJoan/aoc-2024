@@ -43,9 +43,7 @@ File.open(ARGV[0], "r") do |f|
         new_levels = levels.dup
         new_levels.delete_at(i)
         safe = are_levels_safe?(new_levels)
-        if safe
-          break
-        end
+        break if safe
       end
     end
     

@@ -1,31 +1,35 @@
+# frozen_string_literal: true
+
 require 'io/console'
 
-def step(map, location, direction)
+def step(_map, location, direction)
   x, y = location
-  if direction == :up
-    return x, y - 1
-  elsif direction == :down
-    return x, y + 1
-  elsif direction == :left
-    return x - 1, y
-  elsif direction == :right
-    return x + 1, y
+  case direction
+  when :up
+    [x, y - 1]
+  when :down
+    [x, y + 1]
+  when :left
+    [x - 1, y]
+  when :right
+    [x + 1, y]
   else
-    raise "Unknown direction."
+    raise 'Unknown direction.'
   end
 end
 
 def turn_right(current_direction)
-  if current_direction == :up
-    return :right
-  elsif current_direction == :right
-    return :down
-  elsif current_direction == :down
-    return :left
-  elsif current_direction == :left
-    return :up
+  case current_direction
+  when :up
+    :right
+  when :right
+    :down
+  when :down
+    :left
+  when :left
+    :up
   else
-    raise "Unknown direction"
+    raise 'Unknown direction'
   end
 end
 
@@ -43,33 +47,29 @@ def navigate_map(map, visited_map, location, direction)
   return if next_x.negative? || next_x > map[0].length - 1 || next_y.negative? || next_y > map.length - 1
 
   next_char = map[next_y][next_x]
-  if next_char == '#'
-      next_direction = turn_right(direction)
-      return navigate_map(map, visited_map, location, next_direction)
-  else
-    return navigate_map(map, visited_map, [next_x, next_y], direction)
-  end
+  return navigate_map(map, visited_map, [next_x, next_y], direction) unless next_char == '#'
+
+  next_direction = turn_right(direction)
+  navigate_map(map, visited_map, location, next_direction)
 end
 
 def gen_visitied_map(map)
   line = '.' * map[0].length
   array = []
-  (0..map.length - 1).each do |nb|
+  (0..map.length - 1).each do |_nb|
     array.append(line.dup)
   end
-  
-  return array
+
+  array
 end
 
 map = nil
 start_location = nil
 File.open(ARGV[0], 'r') do |f|
-  map = f.readlines().map { |elem| elem.strip }
+  map = f.readlines.map(&:strip)
   map.each.with_index do |line, y|
     line.each_char.with_index do |char, x|
-      if char == '^'
-        start_location = [x, y]
-      end
+      start_location = [x, y] if char == '^'
     end
   end
 end

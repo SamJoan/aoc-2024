@@ -45,10 +45,12 @@ def move_block_left(disk, end_location, block)
           disk[read_ptr] = nil
         end
 
-        #p disk
+        p disk[0..300]
         #$stdin.gets
 
         return
+      else
+        puts "Found free block of size parsing_nil_len:#{parsing_nil_len} at offset #{left_pointer}. Not large enough for a block of len #{block_len}"
       end
 
       parsing_nil = false
@@ -58,10 +60,10 @@ def move_block_left(disk, end_location, block)
     left_pointer += 1
   end
 
-  #puts "no space"
+  puts "no space"
+  $stdin.gets
 
 end
-  
 
 def defragment(disk)
   end_pointer = disk.length
@@ -69,21 +71,26 @@ def defragment(disk)
   currently_parsing_len = 0
   last_moved_block_nb = nil
   while end_pointer > 0
-    puts end_pointer
+    puts end_pointer if end_pointer % 100 == 0
     end_pointer -= 1
     number = disk[end_pointer]
 
-    if !currently_parsing
+    if number != nil && !currently_parsing
       currently_parsing = number
       currently_parsing_len += 1
     elsif currently_parsing && number == currently_parsing
       currently_parsing_len += 1
-    else
+    elsif currently_parsing
       block = disk[end_pointer+1..end_pointer+currently_parsing_len]
+      #p block
+      #p "end_ponter: #{end_pointer}"
+      #p "currently_parsing_len: #{currently_parsing_len}"
+      
       if !(last_moved_block_nb && block[0] > last_moved_block_nb)
-
-        #puts "#{number}, last:#{last_moved_block_nb}"
-        #puts "Moving block #{block}"
+        #puts "disk last:"
+        #p disk.last(300)
+        puts "#{number}, last:#{last_moved_block_nb}"
+        puts "Moving block #{block} (len #{block.length})"
         move_block_left(disk, end_pointer, block)
         last_moved_block_nb = block[0]
       end

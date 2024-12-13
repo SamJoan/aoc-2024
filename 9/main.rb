@@ -19,12 +19,13 @@ def generate_disk(dense_format)
   disk
 end
 
-def move_block_left(disk, end_location, block)
-  block_len = block.length
+def generate_empty_map(disk)
+  empty_map = {}
+  p disk
   left_pointer = 0
   parsing_nil = false
   parsing_nil_len = 0
-  while left_pointer < end_location
+  while left_pointer < disk.length - 1
     number = disk[left_pointer]
     
     starting = number == nil && !parsing_nil
@@ -36,22 +37,14 @@ def move_block_left(disk, end_location, block)
     elsif continuing
       parsing_nil_len += 1
     elsif ending
-      if parsing_nil_len >= block_len
-        start = left_pointer - parsing_nil_len
-        (start...start + block_len).each do |write_ptr|
-          read_ptr = (end_location + 1) + (write_ptr - start)
+      start = left_pointer - parsing_nil_len
 
-          disk[write_ptr] = disk[read_ptr]
-          disk[read_ptr] = nil
-        end
+      empty_map[parsing_nil_len] = [] if empty_map[parsing_nil_len] == nil
 
-        p disk[0..300]
-        #$stdin.gets
 
-        return
-      else
-        puts "Found free block of size parsing_nil_len:#{parsing_nil_len} at offset #{left_pointer}. Not large enough for a block of len #{block_len}"
-      end
+
+      puts "Found empty space of len #{parsing_nil_len} at pos #{start}"
+      $stdin.gets
 
       parsing_nil = false
       parsing_nil_len = 0
@@ -59,13 +52,12 @@ def move_block_left(disk, end_location, block)
 
     left_pointer += 1
   end
-
-  puts "no space"
-  $stdin.gets
-
 end
 
 def defragment(disk)
+  empty_map = generate_empty_map(disk)
+  exit 1
+
   end_pointer = disk.length
   currently_parsing = nil
   currently_parsing_len = 0

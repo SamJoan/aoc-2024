@@ -82,8 +82,6 @@ def index_put(index_greater_than, nil_start, nil_len)
 end
 
 def move_block_left(disk, index_greater_than, block_start, block_len)
-  #p disk
-  #p index_greater_than
   nil_start, nil_len = index_greater_than[block_len][0]
 
   if nil_start == nil
@@ -104,10 +102,10 @@ def move_block_left(disk, index_greater_than, block_start, block_len)
     new_nil_length = nil_len - block_len
     index_put(index_greater_than, new_nil_start, new_nil_length)
   end
-  #p disk
 end
 
 def defragment(disk)
+  #puts disk.map {|elem| elem == nil ? '.' : elem }.join
   index_greater_than = generate_index(disk)
 
   end_pointer = disk.length
@@ -128,11 +126,13 @@ def defragment(disk)
       block_start = end_pointer+1
       block_len = currently_parsing_len
       
-      if !(last_moved_block_nb && disk[block_start] > last_moved_block_nb)
-        #p "parsing: #{disk[block_start]}"
-        move_block_left(disk, index_greater_than, block_start, block_len)
-
+      #puts "last_moved:#{last_moved_block_nb} disk[block_start]:#{disk[block_start]}"
+      already_moved = last_moved_block_nb && disk[block_start] >= last_moved_block_nb
+      if !already_moved
+	#p "parsing: #{disk[block_start]}"
         last_moved_block_nb = disk[block_start]
+        move_block_left(disk, index_greater_than, block_start, block_len)
+        #puts disk.map {|elem| elem == nil ? '.' : elem }.join
       end
 
       if number == nil
@@ -156,7 +156,7 @@ dense_format = IO.readlines(ARGV[0])[0].strip
 
 disk = generate_disk(dense_format)
 defragment(disk)
-puts disk.map {|elem| elem == nil ? '.' : elem }.join
+#puts disk.map {|elem| elem == nil ? '.' : elem }.join
 checksum = checksum(disk)
 
 puts checksum

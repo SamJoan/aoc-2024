@@ -19,9 +19,19 @@ def generate_disk(dense_format)
   disk
 end
 
-def generate_empty_map(disk)
-  empty_map = {}
-  p disk
+def generate_index(disk)
+  """
+  Allows for o(1) querying, similar to a DB index for a query like below:
+
+  SELECT * FROM spaces WHERE BLOCK_LEN > LEN ORDER BY LEFT_OFFSET
+
+  If you have a block with len 3, you can call index_greater_than[3] and you will get all blocks with len > 3 that you can use.
+  """
+  index_greater_than = {}
+  (0..9).each do |nb|
+    index_greater_than[nb] = []
+  end
+
   left_pointer = 0
   parsing_nil = false
   parsing_nil_len = 0
@@ -39,12 +49,10 @@ def generate_empty_map(disk)
     elsif ending
       start = left_pointer - parsing_nil_len
 
-      empty_map[parsing_nil_len] = [] if empty_map[parsing_nil_len] == nil
-
-
-
-      puts "Found empty space of len #{parsing_nil_len} at pos #{start}"
-      $stdin.gets
+      greater_than = (1..parsing_nil_len)
+      greater_than.each do |gt|
+        index_greater_than[gt].append([start, parsing_nil_len])
+      end
 
       parsing_nil = false
       parsing_nil_len = 0
@@ -52,11 +60,55 @@ def generate_empty_map(disk)
 
     left_pointer += 1
   end
+
+  return index_greater_than
+end
+
+def index_delete(index_greater_than, nil_start, nil_len)
+  (1..nil_len).each do |nb|
+    index_greater_than[nb].delete_if {|index| index[0] == nil_start && index[1] == nil_len }
+  end
+end
+
+def index_put(index_greater_than, nil_start, nil_len)
+  (1..nil_len).each do |nb|
+    index_greater_than[nb].each.with_index do |index, i|
+      if nil_start < index[0]
+        index_greater_than[nb].insert(i, [nil_start, nil_len])
+        break
+      end
+    end
+  end
+end
+
+def move_block_left(disk, index_greater_than, block_start, block_len)
+  #p disk
+  #p index_greater_than
+  nil_start, nil_len = index_greater_than[block_len][0]
+
+  if nil_start == nil
+    return
+  end
+
+  (nil_start..nil_start+block_len-1).each do |i|
+    disk[i] = disk[block_start]
+  end
+
+  (block_start..block_start+block_len-1).each do |i|
+    disk[i] = nil
+  end
+
+  index_delete(index_greater_than, nil_start, nil_len)
+  if block_len != nil_len
+    new_nil_start = nil_start + block_len
+    new_nil_length = nil_len - block_len
+    index_put(index_greater_than, new_nil_start, new_nil_length)
+  end
+  #p disk
 end
 
 def defragment(disk)
-  empty_map = generate_empty_map(disk)
-  exit 1
+  index_greater_than = generate_index(disk)
 
   end_pointer = disk.length
   currently_parsing = nil
@@ -73,18 +125,14 @@ def defragment(disk)
     elsif currently_parsing && number == currently_parsing
       currently_parsing_len += 1
     elsif currently_parsing
-      block = disk[end_pointer+1..end_pointer+currently_parsing_len]
-      #p block
-      #p "end_ponter: #{end_pointer}"
-      #p "currently_parsing_len: #{currently_parsing_len}"
+      block_start = end_pointer+1
+      block_len = currently_parsing_len
       
-      if !(last_moved_block_nb && block[0] > last_moved_block_nb)
-        #puts "disk last:"
-        #p disk.last(300)
-        puts "#{number}, last:#{last_moved_block_nb}"
-        puts "Moving block #{block} (len #{block.length})"
-        move_block_left(disk, end_pointer, block)
-        last_moved_block_nb = block[0]
+      if !(last_moved_block_nb && disk[block_start] > last_moved_block_nb)
+        #p "parsing: #{disk[block_start]}"
+        move_block_left(disk, index_greater_than, block_start, block_len)
+
+        last_moved_block_nb = disk[block_start]
       end
 
       if number == nil

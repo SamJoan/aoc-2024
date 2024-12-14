@@ -35,7 +35,7 @@ def generate_index(disk)
   left_pointer = 0
   parsing_nil = false
   parsing_nil_len = 0
-  while left_pointer < disk.length - 1
+  while left_pointer < disk.length
     number = disk[left_pointer]
     
     starting = number == nil && !parsing_nil
@@ -81,10 +81,10 @@ def index_put(index_greater_than, nil_start, nil_len)
   end
 end
 
-def move_block_left(disk, index_greater_than, block_start, block_len)
+def move_block_left(disk, index_greater_than, block_start, block_len, end_pointer)
   nil_start, nil_len = index_greater_than[block_len][0]
 
-  if nil_start == nil
+  if nil_start == nil || nil_start > end_pointer
     return
   end
 
@@ -126,13 +126,12 @@ def defragment(disk)
       block_start = end_pointer+1
       block_len = currently_parsing_len
       
-      #puts "last_moved:#{last_moved_block_nb} disk[block_start]:#{disk[block_start]}"
       already_moved = last_moved_block_nb && disk[block_start] >= last_moved_block_nb
       if !already_moved
-	#p "parsing: #{disk[block_start]}"
+        p "parsing: #{disk[block_start]}"
         last_moved_block_nb = disk[block_start]
-        move_block_left(disk, index_greater_than, block_start, block_len)
-        #puts disk.map {|elem| elem == nil ? '.' : elem }.join
+        move_block_left(disk, index_greater_than, block_start, block_len, end_pointer)
+	#puts disk.map {|elem| elem == nil ? '.' : elem }.join
       end
 
       if number == nil

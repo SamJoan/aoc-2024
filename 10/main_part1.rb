@@ -39,7 +39,8 @@ def navigate(map, already_visited, x, y)
   #puts "#{x} #{y}: #{current_value}"
   #debug(map, x, y)
   #$stdin.gets
-  if current_value == 9
+  if current_value == 9 && !already_visited.include?([x, y])
+    already_visited.append([x, y])
     return 1
   end
 

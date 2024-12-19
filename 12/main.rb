@@ -72,16 +72,61 @@ def find_islands(map)
   islands
 end
 
+def find_edges(map, island, parsing, pos, directions)
+  sides = 0
+  directions.each do |direction|
+    next_dir = get_next_pos(map, pos, direction)
+    is_part_of_island = next_dir && island.include?(next_dir)
+
+    if !parsing[direction] && !is_part_of_island
+      parsing[direction] = true
+      sides += 1
+    elsif parsing[direction] && is_part_of_island
+      parsing[direction] = false
+    end
+  end
+
+  sides
+end
+
+def count_sides(map, island)
+  sides = 0
+  map.each.with_index do |line, y|
+    parsing = {}
+    line.each_char.with_index do |_, x|
+      if island.include?([x, y])
+        directions = [:up, :down]
+        sides += find_edges(map, island, parsing, [x, y], directions)
+      else
+        parsing = {}
+      end
+    end
+  end
+
+  map[0].each_char.with_index do |_, x|
+    parsing = {}
+    map.each.with_index do |_, y|
+      if island.include?([x, y])
+        directions = [:left, :right]
+        sides += find_edges(map, island, parsing, [x, y], directions)
+      else
+        parsing = {}
+      end
+    end
+  end
+
+  sides
+end
+
 map = IO.readlines(ARGV[0]).map(&:strip)
 
 islands = find_islands(map)
 
 score = 0
-islands.each do |island|
+islands.each.with_index do |island, nb|
+  puts "#{nb}/#{islands.length}"
   area = island.length
   sides = count_sides(map, island)
-  p island
-  puts "has #{sides} sides and area #{area}"
   score += area * sides
 end
 

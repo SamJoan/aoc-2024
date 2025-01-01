@@ -4,15 +4,14 @@ class Element
 
   attr_accessor :cost, :location
 
-  def initialize(cost, location, direction, path)
+  def initialize(cost, location, direction)
     @cost = cost
     @location = location
     @direction = direction
-    @path = path
   end
 
   def get_values
-    return @cost, @location, @direction, @path
+    return @cost, @location, @direction
   end
 
 end
@@ -152,55 +151,42 @@ end
 def navigate(map, start_location, direction)
   initial_cost = 0
   mh = MinHeap.new
-  new_loc_right = move(map, start_location, :right)
-  new_loc_up = move(map, start_location, :up)
-  mh << Element.new(1, new_loc_right, :right, [start_location, new_loc_right])
-  mh << Element.new(1001, new_loc_up, :up, [start_location, new_loc_up])
+  mh << Element.new(1, move(map, start_location, :right), :right)
+  mh << Element.new(1001, move(map, start_location, :up), :up)
 
   already_visited = {}
-  good_seating_locations = []
 
-  min_cost = nil
-  while elem = mh.get_min
-    cost, location, direction, path = elem.get_values
+  loop do
+    elem = mh.get_min
+    cost, location, direction = elem.get_values
     x, y = location
 
     loc_tuple = [location, direction]
 
-    if map[y][x] == "E"
-      min_cost = cost
-      puts "Found min cost #{cost}, path #{path}"
-      good_seating_locations += path
-      next
-    end
+    return cost if map[y][x] == "E"
 
-    next if min_cost != nil && cost > min_cost
+    next if already_visited[loc_tuple] == true
     next if map[y][x] == "#"
-    
-    p cost
-    already_visited[loc_tuple] = cost
+
+    already_visited[loc_tuple] = true
+
+    #puts "Navigating location #{location}, direction #{direction}, cost #{cost}"
+    #debug_map(map, location)
+    #$stdin.gets
 
     [:keep_straight, :turn_right, :turn_left].each do |possibility|
       new_direction = send(possibility, direction)
       new_location = move(map, location, new_direction)
       new_cost = possibility == :keep_straight ? cost + 1 : cost + 1001
-      new_path = path + [new_location]
 
-      new_loc_tuple = [new_location, new_direction]
-      cache = already_visited[new_loc_tuple]
-
-      if !cache || cache >= new_cost
-        new_elem = Element.new(new_cost, new_location, new_direction, new_path)
-        mh << new_elem
-      end
+      new_elem = Element.new(new_cost, new_location, new_direction)
+      mh << new_elem
     end
   end
-
-  good_seating_locations.uniq.length
 end
 
 
 map, start_location = parse_map(ARGV[0])
-good_seating_locations = navigate(map, start_location, :right)
+min_cost = navigate(map, start_location, :right)
 
-puts "Good seating locations: #{good_seating_locations}"
+puts "Minimum cost is #{min_cost}"

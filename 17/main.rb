@@ -285,6 +285,8 @@ loop do
   elem = mh.get_min
   distance, base_nb = elem.get_values
 
+  next if already_seen[base_nb]
+
   if distance == 0
     puts "Found target value #{base_nb} (oct -> int #{base_nb.oct}). Output of calculation: #{get_output(base_nb)}, target #{TARGET_OUTPUT}"
     if !min_base_value
@@ -303,15 +305,6 @@ loop do
   base_output = get_output(base_nb)
   base_nb.each_char.with_index do |current_val, index|
     indexes_that_change = get_diff_indexes(base_nb, index)
-    all_equal = true
-    indexes_that_change.each do |index|
-      if base_output[index] != TARGET_OUTPUT[index]
-        all_equal = false
-        break
-      end
-    end
-
-    next if all_equal
 
     range = index == 0 ? (1..7) : (0..7) 
 

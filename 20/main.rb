@@ -101,12 +101,29 @@ def opposite(direction)
   end
 end
 
+def get_start_end_pair(map, steps)
+  s, e = nil
+  steps.each do |step|
+    x, y = step
+    is_hash = map[y][x] == '#'
+    if !s && is_hash
+      s = step
+      e = step
+    elsif is_hash
+      e = step
+    end
+  end
+
+  return s, e
+end
+
 def navigate(map, cache, target_location, start_location, original_cost, original_steps, cheating_allowed)
   
   mh = MinHeap.new { |x, y| (x.cost <=> y.cost) == -1 }
   mh.push(0, Element.new(0, start_location, nil, 1, -1, []))
 
   solutions = []
+  already_added = {}
   loops = 0
   loop do
     loops += 1
@@ -119,9 +136,9 @@ def navigate(map, cache, target_location, start_location, original_cost, origina
     
     break if original_cost && cost >= original_cost
 
-    #puts "Cost #{cost} elem #{elem}" if loops != 0 && loops % 10000 == 0
-    #x, y = location
-    #puts "At non-# #{map[y][x]}: #{x} #{y} #{cheats_remaining} #{remaining_cheat_seconds}" if map[y][x] != '#'
+    puts "Cost #{cost} elem #{elem}" if loops != 0 && loops % 10000 == 0
+    x, y = location
+    puts "At non-# #{map[y][x]}: #{x} #{y} #{cheats_remaining} #{remaining_cheat_seconds}" if map[y][x] != '#'
 
     directions = DIRECTIONS.dup
     directions = directions - [opposite(last_direction)] if last_direction
@@ -130,6 +147,7 @@ def navigate(map, cache, target_location, start_location, original_cost, origina
     steps.append(location)
 
     if location == target_location
+      puts "found a solulu"
       solutions.append(cost)
       if !original_cost
         original_steps = steps
@@ -138,16 +156,23 @@ def navigate(map, cache, target_location, start_location, original_cost, origina
       next
     end
 
+    debug_map(map, steps)
+    $stdin.gets
+
     if original_cost && cheats_remaining == 0 && remaining_cheat_seconds == 0
       pos = original_steps.index(location)
       remaining_cost = original_cost - pos
       raise "Invalid step" if !pos
       new_total_cost = cost + remaining_cost
-      solutions.append(new_total_cost) if new_total_cost < original_cost
 
-      puts new_total_cost
-      debug_map(map, steps)
-      $stdin.gets
+
+      start_end_pair = get_start_end_pair(map, steps)
+      if !already_added.include?(start_end_pair) && new_total_cost <= original_cost - 50
+        puts "start position #{start_end_pair[0]} nb solutions #{solutions.length} new_total_cost:#{new_total_cost}"
+        solutions.append(new_total_cost)
+        already_added[start_end_pair] = true
+      end
+
       next
     end
 
@@ -160,7 +185,7 @@ def navigate(map, cache, target_location, start_location, original_cost, origina
 
       next_x, next_y = next_pos
       if map[next_y][next_x] != '#'
-        mh.push(cost + 1, Element.new(cost + 1, next_pos, direction, cheats_remaining, 0, steps))
+        mh.push(cost + 1, Element.new(cost + 1, next_pos, direction, cheats_remaining, remaining_cheat_seconds, steps))
       elsif cheating_allowed
         if !is_cheating
           if cheats_remaining > 0

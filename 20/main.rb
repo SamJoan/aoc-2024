@@ -1,4 +1,5 @@
 require "algorithms"
+require "set"
 include Containers
 
 DIRECTIONS = [:up, :down, :left, :right]
@@ -10,17 +11,14 @@ class Element
     "<Element #{@cost} #{@position[0]},#{@position[1]}>"
   end
 
-  def initialize(cost, position, last_direction, cheats_remaining, remaining_cheat_seconds, steps)
+  def initialize(cost, position, last_direction)
     @cost = cost
     @position = position
     @last_direction = last_direction
-    @cheats_remaining = cheats_remaining
-    @remaining_cheat_seconds = remaining_cheat_seconds
-    @steps = steps
   end
 
   def get_values
-    return @cost, @position, @last_direction, @cheats_remaining, @remaining_cheat_seconds, @steps
+    return @cost, @position, @last_direction
   end
 end
 
@@ -117,29 +115,23 @@ def get_start_end_pair(map, steps)
   return s, e
 end
 
-def navigate(map, cache, target_location, start_location, original_cost, original_steps, cheating_allowed)
+def navigate(map, target_location, start_location)
   
   mh = MinHeap.new { |x, y| (x.cost <=> y.cost) == -1 }
-  mh.push(0, Element.new(0, start_location, nil, 1, -1, []))
+  mh.push(0, Element.new(0, start_location, nil))
 
   solutions = []
   already_added = {}
-  loops = 0
+  original_steps = []
+  steps = []
   loop do
-    loops += 1
 
     elem = mh.min!
 
     break if !elem
 
-    cost, location, last_direction, cheats_remaining, remaining_cheat_seconds, steps = elem.get_values
+    cost, location, last_direction = elem.get_values
     
-    break if original_cost && cost >= original_cost
-
-    puts "Cost #{cost} elem #{elem}" if loops != 0 && loops % 10000 == 0
-    x, y = location
-    puts "At non-# #{map[y][x]}: #{x} #{y} #{cheats_remaining} #{remaining_cheat_seconds}" if map[y][x] != '#'
-
     directions = DIRECTIONS.dup
     directions = directions - [opposite(last_direction)] if last_direction
 
@@ -147,85 +139,79 @@ def navigate(map, cache, target_location, start_location, original_cost, origina
     steps.append(location)
 
     if location == target_location
-      puts "found a solulu"
       solutions.append(cost)
-      if !original_cost
-        original_steps = steps
-      end
+      original_steps = steps
 
-      next
+      break
     end
 
-    debug_map(map, steps)
-    $stdin.gets
-
-    if original_cost && cheats_remaining == 0 && remaining_cheat_seconds == 0
-      pos = original_steps.index(location)
-      remaining_cost = original_cost - pos
-      raise "Invalid step" if !pos
-      new_total_cost = cost + remaining_cost
-
-
-      start_end_pair = get_start_end_pair(map, steps)
-      if !already_added.include?(start_end_pair) && new_total_cost <= original_cost - 50
-        puts "start position #{start_end_pair[0]} nb solutions #{solutions.length} new_total_cost:#{new_total_cost}"
-        solutions.append(new_total_cost)
-        already_added[start_end_pair] = true
-      end
-
-      next
-    end
-
-    is_cheating = !remaining_cheat_seconds.negative?
     directions.each do |direction|
       next_pos = step(map, location, direction)
-      new_remaining_cheat_seconds = remaining_cheat_seconds - 1
 
       next if !next_pos
 
       next_x, next_y = next_pos
       if map[next_y][next_x] != '#'
-        mh.push(cost + 1, Element.new(cost + 1, next_pos, direction, cheats_remaining, remaining_cheat_seconds, steps))
-      elsif cheating_allowed
-        if !is_cheating
-          if cheats_remaining > 0
-            new_cheats_remaining = cheats_remaining - 1
-            new_remaining_cheat_seconds = 19
-            mh.push(cost + 1, Element.new(cost + 1, next_pos, direction, new_cheats_remaining, new_remaining_cheat_seconds, steps))
-          end
-        else
-          if new_remaining_cheat_seconds > 0
-            mh.push(cost + 1, Element.new(cost + 1, next_pos, direction, cheats_remaining, new_remaining_cheat_seconds, steps))
-          else
-            # Segfault
-          end
-        end
+        mh.push(cost + 1, Element.new(cost + 1, next_pos, direction))
       end
-    end
-  end
-
-  solutions.select! do |cost|
-    if !original_cost
-      puts "Original cost #{cost}"
-      next(true)
-    elsif original_cost - cost >= 100 || original_cost < 100
-      next(true)
-    else
-      puts "Found solution, but does not save 100 steps. #{cost} steps :("
-      next(false)
     end
   end
 
   return solutions, original_steps
 end
 
+def find_valid_teleportations(steps, step, teleport_radius)
+  within_radius = {}
+  steps.each do |destination|
+    x_a, y_a = step
+    x_b, y_b = destination
+    manhattan = (x_a - x_b).abs + (y_a - y_b).abs
+
+    if manhattan <= teleport_radius && manhattan >= 2
+      within_radius[manhattan] = [] if !within_radius[manhattan]
+      within_radius[manhattan].append(destination)
+    end
+  end
+
+  within_radius
+end
+
+def navigate_while_cheating(map, steps, original_cost, teleport_radius, expected_savings)
+  steps_pos = {}
+  steps.each.with_index do |step, i|
+    steps_pos[step] = i
+  end
+
+  cost = 0
+  solutions = []
+  steps.each do |step|
+    puts cost if cost % 100 == 0 && cost != 0
+
+    teleps = find_valid_teleportations(steps, step, teleport_radius)
+    teleps.each do |manhattan, coords|
+      coords.each do |dest_coord|
+        remaining_after_dest = steps.length - 1 - steps_pos[dest_coord]
+        final_cost = cost + manhattan + remaining_after_dest
+        solutions.append(final_cost) if final_cost <= original_cost - expected_savings
+      end
+    end
+
+    cost += 1
+  end
+
+  solutions
+end
+
 start_location, target_location, map = parse_map(ARGV[0])
 
-cache = {}
-solutions, original_steps = navigate(map, cache, target_location, start_location, nil, nil, false)
+solutions, steps = navigate(map, target_location, start_location)
 original_cost = solutions[0]
-solutions, _ = navigate(map, cache, target_location, start_location, original_cost, original_steps, true)
 
-#p solutions.map {|s| original_cost - s }.tally
+teleport_radius = ARGV[1].to_i
+expected_savings = ARGV[2].to_i
+raise "radius" if teleport_radius < 2
+raise "expected_savings" if teleport_radius < 1
+solutions = navigate_while_cheating(map, steps, original_cost, teleport_radius, expected_savings)
 
-#puts "Total count: #{solutions.length}"
+p solutions.map {|s| original_cost - s }.tally
+puts solutions.length

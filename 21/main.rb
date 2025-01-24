@@ -1,6 +1,56 @@
-require "algorithms"
-require "set"
-include Containers
+class MinHeap
+  def initialize
+    @data = []
+    @dirty = true
+  end
+
+  def <<(element)
+    @dirty = true
+    @data << element
+  end
+
+  def swap!(a, b)
+    temp = @data[b]
+    @data[b] = @data[a]
+    @data[a] = temp
+  end
+
+  def heapify!(i)
+    if @data.length > 1
+      smallest = i
+
+      left = 2 * i + 1
+      right = 2 * i + 2
+
+      smallest = left if left < @data.length && @data[left].cost < @data[smallest].cost
+      smallest = right if right < @data.length && @data[right].cost < @data[smallest].cost
+
+      if smallest != i
+        swap!(i, smallest)
+        heapify!(smallest)
+      end
+    end
+  end
+
+  def min!
+    if @data.length > 0
+      if @dirty
+        (@data.length / 2 - 1).downto(0) do |i|
+          heapify!(i)
+          @dirty = false
+        end
+      end
+
+      elem = @data[0]
+      swap!(0, @data.length - 1)
+      @data.pop
+
+      heapify!(0)
+    end
+
+    elem
+  end
+end
 
 def parse_inputs(filename)
   IO.readlines(filename).map(&:strip).map {|line| line.chars }
@@ -89,7 +139,7 @@ def get_next_position(direction, current_position)
 end
 
 def solve(keypad, required_output)
-  mh = MinHeap.new { |x, y| (x.cost <=> y.cost) == -1 }
+  mh = MinHeap.new
   current_position = get_char_pos(keypad, 'A')
   target_position = get_char_pos(keypad, required_output[0])
 
@@ -106,10 +156,12 @@ def solve(keypad, required_output)
 
     next if keypad[current_y][current_x] == '.' # Irrecoverable exception :( Poor robot..
 
-    #p current_position, target_position
-    #p input, remaining_output
-    #$stdin.gets
-    #p
+    if required_output.length > 15
+      p current_position, target_position
+      p input, remaining_output
+      $stdin.gets
+      p
+    end
 
     if current_position == target_position
       next_required_output = remaining_output.dup
@@ -162,11 +214,16 @@ required_outputs_from_file.each do |required_output_from_file|
   required_pads.each do |required_pad|
     next_outputs = []
     outputs.each do |output|
+      puts "Looking for output #{output.join}"
       solutions = solve(required_pad, output)
-      p solutions
       next_outputs.concat(solutions)
     end
 
     outputs = next_outputs
+    outputs.each do |poss_output|
+      puts "Poss output: #{poss_output.join} (len: #{poss_output.length})"
+    end
+    puts "Wait for ENTER"
+    $stdin.gets
   end
 end

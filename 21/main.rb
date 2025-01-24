@@ -133,6 +133,8 @@ def solve(keypad, required_output)
       end
     end
   end
+
+  solutions
 end
 
 numpad = [
@@ -153,7 +155,18 @@ required_pads = [
   keypad
 ]
 
-inputs = parse_inputs(ARGV[0])
+required_outputs_from_file = parse_inputs(ARGV[0])
 
-solve(numpad, inputs[0])
+required_outputs_from_file.each do |required_output_from_file|
+  outputs = [required_output_from_file]
+  required_pads.each do |required_pad|
+    next_outputs = []
+    outputs.each do |output|
+      solutions = solve(required_pad, output)
+      p solutions
+      next_outputs.concat(solutions)
+    end
 
+    outputs = next_outputs
+  end
+end

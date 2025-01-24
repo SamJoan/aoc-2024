@@ -1,4 +1,6 @@
-class IrrecoverablePanic < StandardError; end
+require "algorithms"
+require "set"
+include Containers
 
 def parse_inputs(filename)
   IO.readlines(filename).map(&:strip).map {|line| line.chars }
@@ -29,73 +31,108 @@ def debug_keypad(keypad, pos, target_pos, required_solution, output)
   end
 end
 
-def press!(output, current_pos, keypad, keypress)
-  current_cursor_x, current_cursor_y = current_pos
-  if keypress == '<'
-    current_cursor_x -= 1
-  elsif keypress == '>'
-    current_cursor_x += 1
-  elsif keypress == "v"
-    current_cursor_y += 1
-  elsif keypress == "^"
-    current_cursor_y -= 1
-  else
-    raise "Unknown keypress #{keypress}"
+class Element
+  attr_accessor :cost
+
+  def initialize(cost, current_position, target_position, input, remaining_output)
+    @cost = cost
+    @current_position = current_position
+    @target_position = target_position
+    @input = input
+    @remaining_output = remaining_output
   end
 
-  raise IrrecoverablePanic if keypad[current_cursor_y][current_cursor_x] == "."
-
-  output.append(keypress)
-
-  return [current_cursor_x, current_cursor_y]
+  def get_values
+    return @cost, @current_position, @target_position, @input, @remaining_output
+  end
 end
 
-def solve(keypad, required_solution)
-  required_solution = required_solution.dup
-  current_cursor = get_char_pos(keypad, "A")
-  current_cursor_x, current_cursor_y = current_cursor
-  output = []
-  loop do
-    target_char = required_solution[0]
-    break if !target_char
+def get_reasonable_directions(current_position, target_position)
+  current_x, current_y = current_position
+  target_x, target_y = target_position
+  directions = []
 
-    target_location_x, target_location_y = get_char_pos(keypad, target_char)
-    current_cursor_x, current_cursor_y = current_cursor
-
-    debug_keypad(keypad, [current_cursor_x, current_cursor_y], [target_location_x, target_location_y], required_solution, output)
-    $stdin.gets
-
-    if current_cursor_x > target_location_x
-      begin
-        current_cursor = press!(output, current_cursor, keypad, '<')
-        next
-      rescue IrrecoverablePanic; end
-    elsif current_cursor_x < target_location_x
-      begin
-        current_cursor = press!(output, current_cursor, keypad, '>')
-        next
-      rescue IrrecoverablePanic; end
-    end
-
-    if current_cursor_y < target_location_y
-      begin
-        current_cursor = press!(output, current_cursor, keypad, 'v')
-        next
-      rescue IrrecoverablePanic; end
-    elsif current_cursor_y > target_location_y
-      begin
-        current_cursor = press!(output, current_cursor, keypad, '^')
-        next
-      rescue IrrecoverablePanic; end
-    end
-
-    if current_cursor_x == target_location_x && current_cursor_y == target_location_y
-      output.append("A")
-      required_solution.shift
+  if current_x != target_x
+    if current_x > target_x
+      directions.append('<')
+    else
+      directions.append('>')
     end
   end
 
-  output
+  if current_y != target_y
+    if current_y > target_y
+      directions.append('^')
+    else
+      directions.append('v')
+    end
+  end
+
+  directions
+end
+
+def get_next_position(direction, current_position)
+  current_x, current_y = current_position
+
+  case direction
+  when '<'
+    current_x -= 1
+  when '>'
+    current_x += 1
+  when '^'
+    current_y -= 1
+  when 'v'
+    current_y += 1
+  end
+
+  return [current_x, current_y]
+end
+
+def solve(keypad, required_output)
+  mh = MinHeap.new { |x, y| (x.cost <=> y.cost) == -1 }
+  current_position = get_char_pos(keypad, 'A')
+  target_position = get_char_pos(keypad, required_output[0])
+
+  mh << Element.new(0, current_position, target_position, [], required_output)
+
+  solutions = []
+  loop do
+    elem = mh.min!
+
+    break if !elem
+
+    cost, current_position, target_position, input, remaining_output = elem.get_values
+    current_x, current_y = current_position
+
+    next if keypad[current_y][current_x] == '.' # Irrecoverable exception :( Poor robot..
+
+    #p current_position, target_position
+    #p input, remaining_output
+    #$stdin.gets
+    #p
+
+    if current_position == target_position
+      next_required_output = remaining_output.dup
+      next_required_output.shift
+      next_input = input.dup.append('A')
+
+      if next_required_output.length.zero?
+        puts "Found solution #{next_input.join}"
+        solutions.append(next_input)
+      else
+        next_target_position = get_char_pos(keypad, next_required_output[0])
+        mh << Element.new(cost + 1, current_position, next_target_position, next_input, next_required_output)
+      end
+
+    else
+      reasonable_directions = get_reasonable_directions(current_position, target_position)
+      reasonable_directions.each do |direction|
+        next_position = get_next_position(direction, current_position)
+        next_input = input.dup.append(direction)
+        mh << Element.new(cost + 1, next_position, target_position, next_input, remaining_output)
+      end
+    end
+  end
 end
 
 numpad = [
@@ -117,20 +154,6 @@ required_pads = [
 ]
 
 inputs = parse_inputs(ARGV[0])
-total_complexity = 0
-inputs.each do |required_output|
-  base_output = required_output
-  required_pads.each do |keypad|
-    required_output = solve(keypad, required_output)
-    puts required_output.join
-  end
 
-  puts "#{base_output.join}: #{required_output.join} (#{required_output.length})"
+solve(numpad, inputs[0])
 
-  length = required_output.length
-  numeric_part = base_output[0..-2].join.to_i
-  total_complexity += length * numeric_part
-  puts "#{length} * #{numeric_part}"
-end
-
-p total_complexity

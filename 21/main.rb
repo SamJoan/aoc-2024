@@ -84,16 +84,15 @@ end
 class Element
   attr_accessor :cost
 
-  def initialize(cost, current_position, target_position, input, remaining_output)
+  def initialize(cost, current_position, target_position, input)
     @cost = cost
     @current_position = current_position
     @target_position = target_position
     @input = input
-    @remaining_output = remaining_output
   end
 
   def get_values
-    return @cost, @current_position, @target_position, @input, @remaining_output
+    return @cost, @current_position, @target_position, @input
   end
 end
 
@@ -138,55 +137,93 @@ def get_next_position(direction, current_position)
   return [current_x, current_y]
 end
 
+class Paths
+  def initialize
+    @paths = {}
+  end
+
+  def get_possible_paths(keypad, current_position, target_position)
+    key = [current_position, target_position]
+    if @paths.has_key?(key)
+      return @paths[key]
+    else
+      mh = MinHeap.new
+      mh << Element.new(0, current_position, target_position, [])
+
+      possible_paths = []
+      loop do
+        elem = mh.min!
+
+        break if !elem
+
+        cost, current_position, target_position, input = elem.get_values
+        curr_x, curr_y = current_position
+
+        if current_position == target_position
+          possible_paths.append(input)
+          next
+        end
+
+        reasonable_directions = get_reasonable_directions(current_position, target_position)
+        reasonable_directions.each do |direction|
+          next_position = get_next_position(direction, current_position)
+
+          next_x, next_y = next_position
+          next if keypad[next_y][next_y] == '.' # irrecoverable error
+
+          next_input = input.dup.append(direction)
+
+          mh << Element.new(cost + 1, next_position, target_position, next_input)
+        end
+
+      end
+
+      @paths[key] = possible_paths
+      return possible_paths
+    end
+  end
+end
+
 def solve(keypad, required_output)
-  mh = MinHeap.new
   current_position = get_char_pos(keypad, 'A')
   target_position = get_char_pos(keypad, required_output[0])
 
-  mh << Element.new(0, current_position, target_position, [], required_output)
+  cache = $caches[keypad]
 
-  solutions = []
+  parts = []
   loop do
-    elem = mh.min!
+    possible_paths = cache.get_possible_paths(keypad, current_position, target_position)
+    parts.append(possible_paths)
 
-    break if !elem
+    required_output.shift
 
-    cost, current_position, target_position, input, remaining_output = elem.get_values
-    current_x, current_y = current_position
+    break if required_output.length == 0
 
-    next if keypad[current_y][current_x] == '.' # Irrecoverable exception :( Poor robot..
-
-    if required_output.length > 15
-      p current_position, target_position
-      p input, remaining_output
-      $stdin.gets
-      p
-    end
-
-    if current_position == target_position
-      next_required_output = remaining_output.dup
-      next_required_output.shift
-      next_input = input.dup.append('A')
-
-      if next_required_output.length.zero?
-        puts "Found solution #{next_input.join}"
-        solutions.append(next_input)
-      else
-        next_target_position = get_char_pos(keypad, next_required_output[0])
-        mh << Element.new(cost + 1, current_position, next_target_position, next_input, next_required_output)
-      end
-
-    else
-      reasonable_directions = get_reasonable_directions(current_position, target_position)
-      reasonable_directions.each do |direction|
-        next_position = get_next_position(direction, current_position)
-        next_input = input.dup.append(direction)
-        mh << Element.new(cost + 1, next_position, target_position, next_input, remaining_output)
-      end
-    end
+    current_position = target_position
+    target_position = get_char_pos(keypad, required_output[0])
   end
 
-  solutions
+  final_outputs = []
+  outputs = parts.shift
+  loop do
+    next_part = parts.shift
+    if !next_part
+      outputs = outputs.map {|x| x + ["A"]}
+      break
+    end
+
+    next_outputs = []
+    outputs.each do |output|
+      next_part.each do |next_part|
+        assembled = output + ["A"] + next_part
+        next_outputs.append(assembled)
+      end
+    end
+
+    outputs = next_outputs
+  end
+
+  outputs
 end
 
 numpad = [
@@ -209,21 +246,18 @@ required_pads = [
 
 required_outputs_from_file = parse_inputs(ARGV[0])
 
-required_outputs_from_file.each do |required_output_from_file|
-  outputs = [required_output_from_file]
-  required_pads.each do |required_pad|
-    next_outputs = []
-    outputs.each do |output|
-      puts "Looking for output #{output.join}"
-      solutions = solve(required_pad, output)
-      next_outputs.concat(solutions)
-    end
+$caches = {}
+$caches[numpad] = Paths.new
+$caches[keypad] = Paths.new
 
-    outputs = next_outputs
-    outputs.each do |poss_output|
-      puts "Poss output: #{poss_output.join} (len: #{poss_output.length})"
+required_outputs_from_file.each do |required_output|
+  p required_output
+  outputs = solve(numpad, required_output)
+
+  2.times do |nb|
+    outputs.each do |required_output|
+      outputs = solve(keypad, required_output)
+      exit
     end
-    puts "Wait for ENTER"
-    $stdin.gets
   end
 end

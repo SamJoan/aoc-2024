@@ -50,6 +50,11 @@ class MinHeap
 
     elem
   end
+
+  def length
+    @data.length
+  end
+
 end
 
 def parse_inputs(filename)
@@ -165,11 +170,17 @@ class Paths
         end
 
         reasonable_directions = get_reasonable_directions(current_position, target_position)
+        #if keypad == $keypad
+          #puts "#{elem}, #{mh.length}"
+          #p reasonable_directions
+          #$stdin.gets
+        #end
+
         reasonable_directions.each do |direction|
           next_position = get_next_position(direction, current_position)
 
           next_x, next_y = next_position
-          next if keypad[next_y][next_y] == '.' # irrecoverable error
+          next if keypad[next_y][next_x] == '.' # irrecoverable error
 
           next_input = input.dup.append(direction)
 
@@ -177,6 +188,7 @@ class Paths
         end
 
       end
+      #p "lol", possible_paths if keypad == $keypad
 
       @paths[key] = possible_paths
       return possible_paths
@@ -188,8 +200,9 @@ def solve(keypad, required_output)
   current_position = get_char_pos(keypad, 'A')
   target_position = get_char_pos(keypad, required_output[0])
 
-  cache = $caches[keypad]
+  currently_round_2 = required_output.length > 6
 
+  cache = $caches[keypad]
   parts = []
   loop do
     possible_paths = cache.get_possible_paths(keypad, current_position, target_position)
@@ -226,38 +239,58 @@ def solve(keypad, required_output)
   outputs
 end
 
-numpad = [
+$numpad = [
   "789".chars,
   "456".chars,
   "123".chars,
   ".0A".chars
 ]
 
-keypad = [
+$keypad = [
   ".^A".chars,
   "<v>".chars
 ]
 
 required_pads = [
-  numpad,
-  keypad,
-  keypad
+  $numpad,
+  $keypad,
+  $keypad
 ]
 
 required_outputs_from_file = parse_inputs(ARGV[0])
 
 $caches = {}
-$caches[numpad] = Paths.new
-$caches[keypad] = Paths.new
+$caches[$numpad] = Paths.new
+$caches[$keypad] = Paths.new
 
+total = 0
 required_outputs_from_file.each do |required_output|
-  p required_output
-  outputs = solve(numpad, required_output)
+  original_required_output = required_output.dup
+  outputs = solve($numpad, required_output)
 
-  2.times do |nb|
+  25.times do |nb|
+    new_outputs = []
     outputs.each do |required_output|
-      outputs = solve(keypad, required_output)
-      exit
+      solutions = solve($keypad, required_output)
+      solutions.each do |solution|
+        new_outputs.append(solution)
+      end
     end
+
+    outputs = new_outputs
   end
+
+  shortest_length = -1
+  outputs.each do |output|
+    shortest_length = shortest_length == -1 || output.length < shortest_length ? output.length : shortest_length
+  end
+
+  numeric_value = original_required_output.join[0..-2].to_i
+
+  puts "Shortest length input for '#{numeric_value}' is #{shortest_length}"
+  puts "total += (#{shortest_length} * #{numeric_value})"
+
+  total += shortest_length * numeric_value
 end
+
+puts "Total: #{total}"

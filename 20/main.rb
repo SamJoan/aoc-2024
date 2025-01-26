@@ -116,7 +116,6 @@ def get_start_end_pair(map, steps)
 end
 
 def navigate(map, target_location, start_location)
-  
   mh = MinHeap.new { |x, y| (x.cost <=> y.cost) == -1 }
   mh.push(0, Element.new(0, start_location, nil))
 

@@ -89,17 +89,40 @@ end
 class Element
   attr_accessor :cost
 
-  def initialize(cost, strategy, current_position, target_position, input)
+  def initialize(cost, current_position, target_position, input)
     @cost = cost
-    @strategy = strategy
     @current_position = current_position
     @target_position = target_position
     @input = input
   end
 
   def get_values
-    return @cost, @strategy, @current_position, @target_position, @input
+    return @cost, @current_position, @target_position, @input
   end
+end
+
+def get_reasonable_directions(current_position, target_position)
+  current_x, current_y = current_position
+  target_x, target_y = target_position
+  directions = []
+
+  if current_x != target_x
+    if current_x > target_x
+      directions.append('<')
+    else
+      directions.append('>')
+    end
+  end
+
+  if current_y != target_y
+    if current_y > target_y
+      directions.append('^')
+    else
+      directions.append('v')
+    end
+  end
+
+  directions
 end
 
 def get_next_position(direction, current_position)
@@ -124,66 +147,22 @@ class Paths
     @paths = {}
   end
 
-  def get_reasonable_directions(strategy, current_position, target_position)
-    current_x, current_y = current_position
-    target_x, target_y = target_position
-    directions = []
-
-    if strategy == :horizontal_first
-      if current_x != target_x
-        if current_x > target_x
-          return ['<']
-        else
-          return ['>']
-        end
-      end
-
-      if current_y != target_y
-        if current_y > target_y
-          return ['^']
-        else
-          return ['v']
-        end
-      end
-    elsif strategy == :vertical_first
-      if current_y != target_y
-        if current_y > target_y
-          return ['^']
-        else
-          return ['v']
-        end
-      end
-
-      if current_x != target_x
-        if current_x > target_x
-          return ['<']
-        else
-          return ['>']
-        end
-      end
-    else
-      raise "Unknown strategy."
-    end
-
-    raise "Unable to direction proper."
-  end
-
   def get_possible_paths(keypad, current_position, target_position)
     key = [current_position, target_position]
     if @paths.has_key?(key)
+      puts "im caching! :D"
       return @paths[key]
     else
-      mh = []
-      mh << Element.new(0, :vertical_first, current_position, target_position, [])
-      mh << Element.new(0, :horizontal_first, current_position, target_position, [])
+      mh = MinHeap.new
+      mh << Element.new(0, current_position, target_position, [])
 
       possible_paths = []
       loop do
-        elem = mh.shift
+        elem = mh.min!
 
         break if !elem
 
-        cost, strategy, current_position, target_position, input = elem.get_values
+        cost, current_position, target_position, input = elem.get_values
         curr_x, curr_y = current_position
 
         if current_position == target_position
@@ -191,7 +170,7 @@ class Paths
           next
         end
 
-        reasonable_directions = get_reasonable_directions(strategy, current_position, target_position)
+        reasonable_directions = get_reasonable_directions(current_position, target_position)
         reasonable_directions.each do |direction|
           next_position = get_next_position(direction, current_position)
 
@@ -200,12 +179,10 @@ class Paths
 
           next_input = input.dup.append(direction)
 
-          mh << Element.new(cost + 1, strategy, next_position, target_position, next_input)
+          mh << Element.new(cost + 1, next_position, target_position, next_input)
         end
 
       end
-
-      possible_paths = possible_paths.uniq
 
       @paths[key] = possible_paths
       return possible_paths

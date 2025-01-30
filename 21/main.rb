@@ -1,61 +1,20 @@
-class MinHeap
-  def initialize
-    @data = []
-    @dirty = true
-  end
+$numpad = [
+  "789".chars,
+  "456".chars,
+  "123".chars,
+  ".0A".chars
+]
 
-  def <<(element)
-    @dirty = true
-    @data << element
-  end
+$keypad = [
+  ".^A".chars,
+  "<v>".chars
+]
 
-  def swap!(a, b)
-    temp = @data[b]
-    @data[b] = @data[a]
-    @data[a] = temp
-  end
-
-  def heapify!(i)
-    if @data.length > 1
-      smallest = i
-
-      left = 2 * i + 1
-      right = 2 * i + 2
-
-      smallest = left if left < @data.length && @data[left].cost < @data[smallest].cost
-      smallest = right if right < @data.length && @data[right].cost < @data[smallest].cost
-
-      if smallest != i
-        swap!(i, smallest)
-        heapify!(smallest)
-      end
-    end
-  end
-
-  def min!
-    if @data.length > 0
-      if @dirty
-        (@data.length / 2 - 1).downto(0) do |i|
-          heapify!(i)
-          @dirty = false
-        end
-      end
-
-      elem = @data[0]
-      swap!(0, @data.length - 1)
-      @data.pop
-
-      heapify!(0)
-    end
-
-    elem
-  end
-
-  def length
-    @data.length
-  end
-
-end
+required_pads = [
+  $numpad,
+  $keypad,
+  $keypad
+]
 
 def parse_inputs(filename)
   IO.readlines(filename).map(&:strip).map {|line| line.chars }
@@ -120,11 +79,13 @@ def get_next_position(direction, current_position)
 end
 
 class Paths
-  def initialize
+  def initialize(pad)
+    @pad = pad
     @paths = {}
   end
 
   def get_reasonable_directions(strategy, current_position, target_position)
+    # XXX: Fix issue when going from 7 to 0
     current_x, current_y = current_position
     target_x, target_y = target_position
     directions = []
@@ -168,7 +129,7 @@ class Paths
     raise "Unable to direction proper."
   end
 
-  def get_possible_paths(keypad, current_position, target_position)
+  def get_possible_paths(current_position, target_position, optimal)
     key = [current_position, target_position]
     if @paths.has_key?(key)
       return @paths[key]
@@ -196,7 +157,7 @@ class Paths
           next_position = get_next_position(direction, current_position)
 
           next_x, next_y = next_position
-          next if keypad[next_y][next_x] == '.' # irrecoverable error
+          next if @pad[next_y][next_x] == '.' # irrecoverable error
 
           next_input = input.dup.append(direction)
 
@@ -207,22 +168,54 @@ class Paths
 
       possible_paths = possible_paths.uniq
 
+      if possible_paths.length > 1 && optimal
+        possible_paths = find_optimal_path(possible_paths)
+      end
+
       @paths[key] = possible_paths
       return possible_paths
     end
   end
+
+  def find_optimal_path(possible_paths)
+    shortest_length = -1
+    shortest_path = []
+    possible_paths.each do |path|
+      outputs = [path]
+      length = n_keypads(outputs, 2, false)
+
+      if length == shortest_length
+        shortest_path.append(path)
+      elsif length < shortest_length || shortest_length == -1
+        shortest_length = length
+        shortest_path = [path]
+      end
+    end
+
+    shortest_path
+  end
+
+  def prepopulate_cache
+    a_position = get_char_pos(@pad, 'A')
+    @pad.each.with_index do |line, y|
+      line.each.with_index do |char, x|
+        current_position = [x, y]
+        get_possible_paths(current_position, a_position, true)
+        get_possible_paths(a_position, current_position, true)
+      end
+    end
+  end
 end
 
-def solve(keypad, required_output)
+def solve(keypad, required_output, optimal=true)
+  required_output = required_output.dup
   current_position = get_char_pos(keypad, 'A')
   target_position = get_char_pos(keypad, required_output[0])
-
-  currently_round_2 = required_output.length > 6
 
   cache = $caches[keypad]
   parts = []
   loop do
-    possible_paths = cache.get_possible_paths(keypad, current_position, target_position)
+    possible_paths = cache.get_possible_paths(current_position, target_position, optimal)
     parts.append(possible_paths)
 
     required_output.shift
@@ -256,39 +249,11 @@ def solve(keypad, required_output)
   outputs
 end
 
-$numpad = [
-  "789".chars,
-  "456".chars,
-  "123".chars,
-  ".0A".chars
-]
-
-$keypad = [
-  ".^A".chars,
-  "<v>".chars
-]
-
-required_pads = [
-  $numpad,
-  $keypad,
-  $keypad
-]
-
-required_outputs_from_file = parse_inputs(ARGV[0])
-
-$caches = {}
-$caches[$numpad] = Paths.new
-$caches[$keypad] = Paths.new
-
-total = 0
-required_outputs_from_file.each do |required_output|
-  original_required_output = required_output.dup
-  outputs = solve($numpad, required_output)
-
-  2.times do |nb|
+def n_keypads(outputs, repeat, optimal=true)
+  repeat.times do |nb|
     new_outputs = []
     outputs.each do |required_output|
-      solutions = solve($keypad, required_output)
+      solutions = solve($keypad, required_output, optimal)
       solutions.each do |solution|
         new_outputs.append(solution)
       end
@@ -301,6 +266,25 @@ required_outputs_from_file.each do |required_output|
   outputs.each do |output|
     shortest_length = shortest_length == -1 || output.length < shortest_length ? output.length : shortest_length
   end
+
+  shortest_length
+end
+
+required_outputs_from_file = parse_inputs(ARGV[0])
+
+$caches = {}
+$caches[$numpad] = Paths.new($numpad)
+$caches[$keypad] = Paths.new($keypad)
+
+$caches[$numpad].prepopulate_cache
+$caches[$keypad].prepopulate_cache
+
+total = 0
+required_outputs_from_file.each do |required_output|
+  original_required_output = required_output.dup
+  outputs = solve($numpad, required_output)
+
+  shortest_length = n_keypads(outputs, 2)
 
   numeric_value = original_required_output.join[0..-2].to_i
 

@@ -160,21 +160,9 @@ class Paths
 
         cost, current_position, target_position, input, invert_strategy = elem.get_values
         curr_x, curr_y = current_position
-        #p [curr_x, curr_y]
-        #$stdin.gets
 
         if current_position == target_position
           optimal_path = input
-
-          #preferred_orders = ["^>", "v>", "<^", "<v"]
-          #if input.uniq.length > 1 && !preferred_orders.include?(input.uniq.join)
-            #p @pad
-            #puts "#{input.uniq.join} not in #{preferred_orders}"
-            #p input
-            #puts "#{@pad[original_position[1]][original_position[0]]} -> #{@pad[target_position[1]][target_position[0]]}"
-            #$stdin.gets
-          #end
-
           next
         end
 
@@ -243,25 +231,15 @@ def solve(keypad, required_output, simulate_interim_a=false)
       parts[part] = 0 if !parts[part]
       parts[part] += value
 
-      #p char
-      #p parts
-      #$stdin.gets
     end
   end
 
-  #p original_output
-  #p parts
-  #$stdin.gets
   parts
 end
 
 def calculate_length(optimal_output)
   length = 0
   optimal_output.each do |part, amount|
-    #p part
-    #p amount
-    #p length
-    #$stdin.gets
     length += (part.length + 1) * amount
   end
 
@@ -270,7 +248,6 @@ end
 
 def n_keypads(optimal_output, repeat, optimal=true)
   repeat.times do |nb|
-    p nb
     optimal_output = solve($keypad, optimal_output, true)
   end
 

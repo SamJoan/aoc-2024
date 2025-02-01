@@ -48,15 +48,16 @@ end
 class Element
   attr_accessor :cost
 
-  def initialize(cost, current_position, target_position, input)
+  def initialize(cost, current_position, target_position, input, invert_strategy)
     @cost = cost
     @current_position = current_position
     @target_position = target_position
     @input = input
+    @invert_strategy = invert_strategy
   end
 
   def get_values
-    return @cost, @current_position, @target_position, @input
+    return @cost, @current_position, @target_position, @input, @invert_strategy
   end
 end
 
@@ -86,58 +87,53 @@ class Paths
 
   # Couldn't figure out, got the answer from here.
   # https://www.reddit.com/r/adventofcode/comments/1hj2odw/comment/m34dspx/?share_id=SRK0wfyf0Y0GS3LcaC36m&utm_medium=android_app&utm_name=androidcss&utm_source=share&utm_term=1
-  def get_next_optimal_direction(original_position, current_position, target_position)
-    original_x, original_y = original_position
+  def get_next_optimal_direction(current_position, target_position, invert_strategy=false)
     current_x, current_y = current_position
     target_x, target_y = target_position
     invalid_x, invalid_y = @invalid_location
 
     moving_left = current_x > target_x
     strategy = moving_left ? :horizontal_first : :vertical_first
-    p strategy
-    p @invalid_location
-    p @pad
-    p current_position
 
-    if strategy == :vertical_first && invalid_x == original_x
-      strategy = :horizontal_first
-    elsif strategy == :horizontal_first && invalid_y == original_y
-      strategy = :vertical_first
+    if invert_strategy
+      strategy = strategy == :horizontal_first ? :vertical_first : :horizontal_first
     end
 
     if strategy == :horizontal_first
       if current_x != target_x
 	if current_x > target_x
-	  return ['<']
+	  return '<'
 	else
-	  return ['>']
+	  return '>'
 	end
       end
 
       if current_y != target_y
 	if current_y > target_y
-	  return ['^']
+	  return '^'
 	else
-	  return ['v']
+	  return 'v'
 	end
       end
     elsif strategy == :vertical_first
       if current_y != target_y
 	if current_y > target_y
-	  return ['^']
+	  return '^'
 	else
-	  return ['v']
+	  return 'v'
 	end
       end
 
       if current_x != target_x
 	if current_x > target_x
-	  return ['<']
+	  return '<'
 	else
-	  return ['>']
+	  return '>'
 	end
       end
     end
+
+    raise "unable to find next dir."
   end
 
   def get_possible_paths(current_position, target_position, optimal)
@@ -147,7 +143,7 @@ class Paths
       return @paths[key]
     else
       mh = []
-      mh << Element.new(0, current_position, target_position, [])
+      mh << Element.new(0, current_position, target_position, [], false)
 
       possible_paths = []
       loop do
@@ -155,7 +151,7 @@ class Paths
 
         break if !elem
 
-        cost, current_position, target_position, input = elem.get_values
+        cost, current_position, target_position, input, invert_strategy = elem.get_values
         curr_x, curr_y = current_position
         #p [curr_x, curr_y]
         #$stdin.gets
@@ -163,30 +159,30 @@ class Paths
         if current_position == target_position
           possible_paths.append(input)
 
-          preferred_orders = ["^>", "v>", "<^", "<v"]
-          if !preferred_orders.include?(input.uniq.join)
-            p @pad
-            puts "#{input.uniq.join} not in #{preferred_orders}"
-            p input
-            puts "#{@pad[original_position[1]][original_position[0]]} -> #{@pad[target_position[1]][target_position[0]]}"
-            $stdin.gets
-          end
+          #preferred_orders = ["^>", "v>", "<^", "<v"]
+          #if input.uniq.length > 1 && !preferred_orders.include?(input.uniq.join)
+            #p @pad
+            #puts "#{input.uniq.join} not in #{preferred_orders}"
+            #p input
+            #puts "#{@pad[original_position[1]][original_position[0]]} -> #{@pad[target_position[1]][target_position[0]]}"
+            #$stdin.gets
+          #end
 
           next
         end
 
-        reasonable_directions = get_next_optimal_direction(original_position, current_position, target_position)
-        reasonable_directions.each do |direction|
-          next_position = get_next_position(direction, current_position)
+        direction = get_next_optimal_direction(current_position, target_position, invert_strategy)
+        next_position = get_next_position(direction, current_position)
 
-          next_x, next_y = next_position
-          raise "Irrecoverable error" if @pad[next_y][next_x] == '.' # irrecoverable error
-
-          next_input = input.dup.append(direction)
-
-          mh << Element.new(cost + 1, next_position, target_position, next_input)
+        next_x, next_y = next_position
+        if @pad[next_y][next_x] == '.' # irrecoverable error, invert strategy.
+          mh << Element.new(0, original_position, target_position, [], true)
+          next
         end
 
+        next_input = input.dup.append(direction)
+
+        mh << Element.new(cost + 1, next_position, target_position, next_input, invert_strategy)
       end
 
       possible_paths = possible_paths.uniq
@@ -220,14 +216,14 @@ class Paths
 
   def prepopulate_cache
     a_position = get_char_pos(@pad, 'A')
+    bad_position = get_char_pos(@pad, '.')
     @pad.each.with_index do |line, y|
       line.each.with_index do |char, x|
         current_position = [x, y]
-        p current_position
-        if current_position == a_position
+        if current_position == a_position || current_position == bad_position
           next
         end
-        current_position = [x, y]
+
         get_possible_paths(current_position, a_position, true)
         get_possible_paths(a_position, current_position, true)
       end
@@ -279,6 +275,7 @@ end
 
 def n_keypads(outputs, repeat, optimal=true)
   repeat.times do |nb|
+    p nb
     new_outputs = []
     outputs.each do |required_output|
       solutions = solve($keypad, required_output, optimal)
@@ -312,7 +309,8 @@ required_outputs_from_file.each do |required_output|
   original_required_output = required_output.dup
   outputs = solve($numpad, required_output)
 
-  shortest_length = n_keypads(outputs, 2)
+  #shortest_length = n_keypads(outputs, 2)
+  shortest_length = n_keypads(outputs, 25)
 
   numeric_value = original_required_output.join[0..-2].to_i
 

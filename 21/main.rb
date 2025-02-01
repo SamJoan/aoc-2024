@@ -48,16 +48,15 @@ end
 class Element
   attr_accessor :cost
 
-  def initialize(cost, strategy, current_position, target_position, input)
+  def initialize(cost, current_position, target_position, input)
     @cost = cost
-    @strategy = strategy
     @current_position = current_position
     @target_position = target_position
     @input = input
   end
 
   def get_values
-    return @cost, @strategy, @current_position, @target_position, @input
+    return @cost, @current_position, @target_position, @input
   end
 end
 
@@ -81,62 +80,74 @@ end
 class Paths
   def initialize(pad)
     @pad = pad
+    @invalid_location = get_char_pos(@pad, '.')
     @paths = {}
   end
 
-  def get_reasonable_directions(strategy, current_position, target_position)
-    # XXX: Fix issue when going from 7 to 0
+  # Couldn't figure out, got the answer from here.
+  # https://www.reddit.com/r/adventofcode/comments/1hj2odw/comment/m34dspx/?share_id=SRK0wfyf0Y0GS3LcaC36m&utm_medium=android_app&utm_name=androidcss&utm_source=share&utm_term=1
+  def get_next_optimal_direction(original_position, current_position, target_position)
+    original_x, original_y = original_position
     current_x, current_y = current_position
     target_x, target_y = target_position
-    directions = []
+    invalid_x, invalid_y = @invalid_location
+
+    moving_left = current_x > target_x
+    strategy = moving_left ? :horizontal_first : :vertical_first
+    p strategy
+    p @invalid_location
+    p @pad
+    p current_position
+
+    if strategy == :vertical_first && invalid_x == original_x
+      strategy = :horizontal_first
+    elsif strategy == :horizontal_first && invalid_y == original_y
+      strategy = :vertical_first
+    end
 
     if strategy == :horizontal_first
       if current_x != target_x
-        if current_x > target_x
-          return ['<']
-        else
-          return ['>']
-        end
+	if current_x > target_x
+	  return ['<']
+	else
+	  return ['>']
+	end
       end
 
       if current_y != target_y
-        if current_y > target_y
-          return ['^']
-        else
-          return ['v']
-        end
+	if current_y > target_y
+	  return ['^']
+	else
+	  return ['v']
+	end
       end
     elsif strategy == :vertical_first
       if current_y != target_y
-        if current_y > target_y
-          return ['^']
-        else
-          return ['v']
-        end
+	if current_y > target_y
+	  return ['^']
+	else
+	  return ['v']
+	end
       end
 
       if current_x != target_x
-        if current_x > target_x
-          return ['<']
-        else
-          return ['>']
-        end
+	if current_x > target_x
+	  return ['<']
+	else
+	  return ['>']
+	end
       end
-    else
-      raise "Unknown strategy."
     end
-
-    raise "Unable to direction proper."
   end
 
   def get_possible_paths(current_position, target_position, optimal)
+    original_position = current_position
     key = [current_position, target_position]
     if @paths.has_key?(key)
       return @paths[key]
     else
       mh = []
-      mh << Element.new(0, :vertical_first, current_position, target_position, [])
-      mh << Element.new(0, :horizontal_first, current_position, target_position, [])
+      mh << Element.new(0, current_position, target_position, [])
 
       possible_paths = []
       loop do
@@ -144,24 +155,36 @@ class Paths
 
         break if !elem
 
-        cost, strategy, current_position, target_position, input = elem.get_values
+        cost, current_position, target_position, input = elem.get_values
         curr_x, curr_y = current_position
+        #p [curr_x, curr_y]
+        #$stdin.gets
 
         if current_position == target_position
           possible_paths.append(input)
+
+          preferred_orders = ["^>", "v>", "<^", "<v"]
+          if !preferred_orders.include?(input.uniq.join)
+            p @pad
+            puts "#{input.uniq.join} not in #{preferred_orders}"
+            p input
+            puts "#{@pad[original_position[1]][original_position[0]]} -> #{@pad[target_position[1]][target_position[0]]}"
+            $stdin.gets
+          end
+
           next
         end
 
-        reasonable_directions = get_reasonable_directions(strategy, current_position, target_position)
+        reasonable_directions = get_next_optimal_direction(original_position, current_position, target_position)
         reasonable_directions.each do |direction|
           next_position = get_next_position(direction, current_position)
 
           next_x, next_y = next_position
-          next if @pad[next_y][next_x] == '.' # irrecoverable error
+          raise "Irrecoverable error" if @pad[next_y][next_x] == '.' # irrecoverable error
 
           next_input = input.dup.append(direction)
 
-          mh << Element.new(cost + 1, strategy, next_position, target_position, next_input)
+          mh << Element.new(cost + 1, next_position, target_position, next_input)
         end
 
       end
@@ -199,6 +222,11 @@ class Paths
     a_position = get_char_pos(@pad, 'A')
     @pad.each.with_index do |line, y|
       line.each.with_index do |char, x|
+        current_position = [x, y]
+        p current_position
+        if current_position == a_position
+          next
+        end
         current_position = [x, y]
         get_possible_paths(current_position, a_position, true)
         get_possible_paths(a_position, current_position, true)

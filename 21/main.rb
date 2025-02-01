@@ -216,36 +216,65 @@ class Paths
   end
 end
 
-def solve(keypad, required_output)
+def solve(keypad, required_output, simulate_interim_a=false)
+  original_output = required_output
   required_output = required_output.dup
-  current_position = get_char_pos(keypad, 'A')
-  target_position = get_char_pos(keypad, required_output[0])
+  last_position = get_char_pos(keypad, 'A')
+  a_position = get_char_pos(keypad, 'A')
 
   cache = $caches[keypad]
-  parts = []
-  loop do
-    part = cache.get_optimal_path(current_position, target_position)
-    parts += part
-    parts.append('A')
+  parts = {}
+  required_output.each do |key, value|
+    key.each do |char|
+      current_position = last_position
+      target_position = get_char_pos(keypad, char)
+      part = cache.get_optimal_path(current_position, target_position)
 
-    required_output.shift
+      last_position = target_position
 
-    break if required_output.length == 0
+      parts[part] = 0 if !parts[part]
+      parts[part] += value
+    end
 
-    current_position = target_position
-    target_position = get_char_pos(keypad, required_output[0])
+    if simulate_interim_a
+      part = cache.get_optimal_path(last_position, a_position)
+      last_position = a_position
+
+      parts[part] = 0 if !parts[part]
+      parts[part] += value
+
+      #p char
+      #p parts
+      #$stdin.gets
+    end
   end
 
+  #p original_output
+  #p parts
+  #$stdin.gets
   parts
+end
+
+def calculate_length(optimal_output)
+  length = 0
+  optimal_output.each do |part, amount|
+    #p part
+    #p amount
+    #p length
+    #$stdin.gets
+    length += (part.length + 1) * amount
+  end
+
+  length
 end
 
 def n_keypads(optimal_output, repeat, optimal=true)
   repeat.times do |nb|
     p nb
-    optimal_output = solve($keypad, optimal_output)
+    optimal_output = solve($keypad, optimal_output, true)
   end
 
-  optimal_output.length
+  calculate_length(optimal_output)
 end
 
 required_outputs_from_file = parse_inputs(ARGV[0])
@@ -260,7 +289,9 @@ $caches[$keypad].prepopulate_cache
 total = 0
 required_outputs_from_file.each do |required_output|
   original_required_output = required_output.dup
-  optimal_output = solve($numpad, required_output)
+  output_dict = {}
+  original_required_output.each { |c| output_dict[[c]] = 0 if !output_dict[[c]] ; output_dict[[c]] += 1  }
+  optimal_output = solve($numpad, output_dict)
 
   number_of_repeats = ARGV[1].to_i
   raise "Missing ARGV[1]" if number_of_repeats <= 0

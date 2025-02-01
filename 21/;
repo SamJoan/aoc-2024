@@ -20,18 +20,11 @@ def parse_inputs(filename)
   IO.readlines(filename).map(&:strip).map {|line| line.chars }
 end
 
-$char_pos_cache = {}
-
 def get_char_pos(keypad, char)
-  key = [keypad, char]
-  return $char_pos_cache[key] if $char_pos_cache[key]
-
   keypad.each.with_index do |line, y|
     a_x = line.index(char)
     if a_x
-      return_value = [a_x, y]
-      $char_pos_cache[key] = return_value
-      return return_value
+      return [a_x, y]
     end
   end
 
@@ -236,16 +229,28 @@ def solve(keypad, required_output)
     target_position = get_char_pos(keypad, required_output[0])
   end
 
-  parts
+  optimal_input
 end
 
 def n_keypads(optimal_output, repeat, optimal=true)
   repeat.times do |nb|
-    p nb
-    optimal_output = solve($keypad, optimal_output)
+    new_outputs = []
+    outputs.each do |required_output|
+      solutions = solve($keypad, required_output)
+      solutions.each do |solution|
+        new_outputs.append(solution)
+      end
+    end
+
+    outputs = new_outputs
   end
 
-  optimal_output.length
+  shortest_length = -1
+  outputs.each do |output|
+    shortest_length = shortest_length == -1 || output.length < shortest_length ? output.length : shortest_length
+  end
+
+  shortest_length
 end
 
 required_outputs_from_file = parse_inputs(ARGV[0])
@@ -262,9 +267,7 @@ required_outputs_from_file.each do |required_output|
   original_required_output = required_output.dup
   optimal_output = solve($numpad, required_output)
 
-  number_of_repeats = ARGV[1].to_i
-  raise "Missing ARGV[1]" if number_of_repeats <= 0
-  shortest_length = n_keypads(optimal_output, number_of_repeats)
+  shortest_length = n_keypads(optimal_output, 2)
 
   numeric_value = original_required_output.join[0..-2].to_i
 

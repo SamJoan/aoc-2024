@@ -13,8 +13,21 @@ def parse_nodes(filename)
   adjacency_list
 end
 
+def all_nodes_connected(adjacency_list, number_of_edges, nodes)
+  valid = true
+  nodes.each do |node|
+    linked = adjacency_list[node] & nodes
+    if linked.length != number_of_edges - 1
+      valid = false
+      break
+    end
+  end
+
+  return valid
+end
+
 def find_max_clique(adjacency_list)
-  already_processed = Set[]
+  number_of_edges = adjacency_list.first.last.length
   sets = Set[]
   adjacency_list.each do |node, neighbours|
     neighbour_pairs = []
@@ -22,29 +35,23 @@ def find_max_clique(adjacency_list)
       linked_to_lan = adjacency_list[neighbour] & neighbours
       next if linked_to_lan.empty?
 
-      linked_to_lan.each do |linked|
-        result = [node, neighbour, linked].sort
+      if linked_to_lan.length == number_of_edges - 2
+        result = ([node, neighbour] + linked_to_lan).sort
         sets.add(result)
       end
     end
   end
 
-  sets
+  sets.each do |result|
+    if all_nodes_connected(adjacency_list, number_of_edges, result)
+      return result.join(',')
+    end
+  end
+
+  raise "Can't find appropriate max_clique."
 end
 
 adjacency_list = parse_nodes(ARGV[0])
-sets = find_sets_of_three(adjacency_list)
+max_clique = find_max_clique(adjacency_list)
 
-total = 0
-sets.each do |set|
-  has_t = false
-  set.each do |elem|
-    if elem.start_with?('t')
-      has_t = true
-      break
-    end
-  end
-  total += 1 if has_t
-end
-
-p total
+puts max_clique

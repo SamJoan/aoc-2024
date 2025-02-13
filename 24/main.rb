@@ -1,3 +1,5 @@
+require "set"
+
 class InvalidCalc < StandardError
 end
 
@@ -33,6 +35,11 @@ class Gate
 
     return true
   end
+
+  def to_s
+    return "<#{@a_name} #{@gate_type} #{@b_name}>"
+  end
+
 end
 
 def parse_gates(filename)
@@ -134,48 +141,45 @@ def valid?(x, y, curr_z_val, next_z_val)
   end
 end
 
-def get_faulty_offsets()
+def find_bad_gates()
+  adjacency_tree, _ = gates_get()
+
+  seen = Set[]
   45.times do |nb|
-    permutations = [
-      [false, true],
-      [true, false],
-      [false, false],
-      [true, true]
-    ]
-
     number_s = nb.to_s.rjust(2, "0")
-    base_values = get_base_values()
-    permutations.each do |perm|
-      initial_values = base_values.dup
+    next_number_s = (nb+1).to_s.rjust(2, "0")
 
-      x, y = perm
-      initial_values["x"+number_s] = x
-      initial_values["y"+number_s] = y
-      adjacency_tree, _ = gates_get()
-      outputs = solve(adjacency_tree, initial_values)
-      #p outputs
+    cur_neighbours = adjacency_tree["z"+number_s]
+    puts "z#{number_s}: #{cur_neighbours.map(&:to_s)}"
+    raise if cur_neighbours.length != 1
+    
+    loop do
+      next_neighbours = []
+      cur_neighbours.each do |cur_neighbour|
+        next if seen.include?(cur_neighbour.to_s)
+        seen << cur_neighbour.to_s
+        puts "cur: #{cur_neighbour}"
+        p seen
+        a_tree = adjacency_tree[cur_neighbour.a_name]
+        b_tree = adjacency_tree[cur_neighbour.b_name]
 
-      begin
-        curr_z = nb
-        next_z = nb + 1
-        valid = valid?(x, y, outputs[curr_z], outputs[next_z])
-      rescue InvalidCalc
-        puts "Invalid at offset #{number_s}: x=#{x} y=#{y}. #{curr_z} = #{outputs[curr_z]}, #{next_z} = #{outputs[next_z]}"
-        #exit
+        next_neighbours += a_tree if a_tree
+        next_neighbours += b_tree if b_tree
+        #puts next_neighbours
+        $stdin.gets
       end
 
-      #p initial_values
-      #$stdin.gets
-      #p
-    end
 
+      break if next_neighbours.length == 0
+
+      cur_neighbours = next_neighbours
+    end
+    $stdin.gets
   end
 end
 
-def find_bad_gates
-
 #faulty_offsets = get_faulty_offsets
-faulty_offsets = find_bad_gates
+bad_gates = find_bad_gates
 
 #46.times do |nb|
   #puts "z#{nb}: #{adjacency_tree['z'+()]}"

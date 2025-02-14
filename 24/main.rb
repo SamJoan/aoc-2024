@@ -4,14 +4,15 @@ class InvalidCalc < StandardError
 end
 
 class Gate
-  attr_accessor :a_name, :b_name, :solved, :result
+  attr_accessor :a_name, :b_name, :solved, :result, :output, :gate_type
 
-  def initialize(a_name, b_name, gate_type)
+  def initialize(a_name, b_name, gate_type, output)
     @a_name = a_name
     @b_name = b_name
     @gate_type = gate_type
     @solved = false
     @result = nil
+    @output = output
   end
 
   def solve!(values)
@@ -37,7 +38,7 @@ class Gate
   end
 
   def to_s
-    return "<#{@a_name} #{@gate_type} #{@b_name}>"
+    return "<#{@a_name} #{@gate_type} #{@b_name} -> #{@output}>"
   end
 
 end
@@ -46,6 +47,7 @@ def parse_gates(filename)
   parsing_inputs = true
   adjacency_tree = {}
   initial_values = {}
+  input_gates = {}
   IO.readlines(filename).map(&:strip).each do |line|
     if line == ""
       parsing_inputs = false
@@ -61,13 +63,20 @@ def parse_gates(filename)
       initial_values[initial_value_name] = initial_value
     else
       a_name, gate_type, b_name, _, result_name = line.split(' ')
+      gate = Gate.new(a_name, b_name, gate_type, result_name)
+
+      input_gates[a_name] = [] if !input_gates[a_name]
+      input_gates[a_name] << gate
+
+      input_gates[b_name] = [] if !input_gates[b_name]
+      input_gates[b_name] << gate
 
       adjacency_tree[result_name] = [] if !adjacency_tree[result_name]
-      adjacency_tree[result_name] <<  Gate.new(a_name, b_name, gate_type)
+      adjacency_tree[result_name] << gate
     end
   end
 
-  return adjacency_tree, initial_values
+  return adjacency_tree, input_gates, initial_values
 end
 
 def solve(adjacency_tree, values)
@@ -108,11 +117,9 @@ def produce_number(outputs)
 end
 
 def gates_get()
-  adjacency_tree, initial_values = parse_gates(ARGV[0])
-  #outputs = solve(adjacency_tree, initial_values)
-  #number = produce_number(outputs)
+  adjacency_tree, input_gates, initial_values = parse_gates(ARGV[0])
 
-  return adjacency_tree, initial_values
+  return adjacency_tree, input_gates, initial_values
 end
 
 def get_base_values()
@@ -142,34 +149,45 @@ def valid?(x, y, curr_z_val, next_z_val)
 end
 
 def find_bad_gates()
-  adjacency_tree, _ = gates_get()
+  adjacency_tree, input_gates, _ = gates_get()
+
+  #45.times do |nb|
+    #number_s = nb.to_s.rjust(2, "0")
+    #input_gates['x'+number_s].each do |gate|
+      #puts "#{gate.to_s} -> #{gate.output} #{input_gates[gate.output]&.map(&:to_s)}"
+    #end
+    #$stdin.gets
+  #end
 
   seen = Set[]
-  45.times do |nb|
+  46.times do |nb|
     number_s = nb.to_s.rjust(2, "0")
     next_number_s = (nb+1).to_s.rjust(2, "0")
 
     cur_neighbours = adjacency_tree["z"+number_s]
-    puts "z#{number_s}: #{cur_neighbours.map(&:to_s)}"
+    puts "z#{number_s}:"
     raise if cur_neighbours.length != 1
     
+    depth = 0
     loop do
       next_neighbours = []
       cur_neighbours.each do |cur_neighbour|
         next if seen.include?(cur_neighbour.to_s)
         seen << cur_neighbour.to_s
-        puts "cur: #{cur_neighbour}"
-        p seen
+        padding = "  " * depth
+        puts "#{padding}cur: #{cur_neighbour}"
+
         a_tree = adjacency_tree[cur_neighbour.a_name]
         b_tree = adjacency_tree[cur_neighbour.b_name]
 
-        next_neighbours += a_tree if a_tree
-        next_neighbours += b_tree if b_tree
-        #puts next_neighbours
-        $stdin.gets
+        if depth < 300
+          next_neighbours += a_tree if a_tree
+          next_neighbours += b_tree if b_tree
+        end
+
       end
 
-
+      depth += 1
       break if next_neighbours.length == 0
 
       cur_neighbours = next_neighbours

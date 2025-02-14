@@ -80,7 +80,7 @@ def parse_gates(filename)
 end
 
 def solve(adjacency_tree, values)
-  # XXX: Instead of looping, proper adjancency tree recursion would be better.
+  # XXX: Instead of looping, proper tree recursion would be better.
   loop do
     nb_solved = 0
 
@@ -148,7 +148,7 @@ def valid?(x, y, curr_z_val, next_z_val)
   end
 end
 
-def find_bad_gates()
+def find_bad_gates(swap_pairs = [])
   adjacency_tree, input_gates, _ = gates_get()
 
   #45.times do |nb|
@@ -159,6 +159,19 @@ def find_bad_gates()
     #$stdin.gets
   #end
 
+  swap_pairs.each do |swap_a, swap_b|
+    temp = adjacency_tree[swap_a]
+
+    adjacency_tree[swap_a] = adjacency_tree[swap_b]
+    adjacency_tree[swap_b] = temp
+
+    raise if adjacency_tree[swap_a].length > 1
+    raise if adjacency_tree[swap_b].length > 1
+    
+    adjacency_tree[swap_a][0].output = swap_a
+    adjacency_tree[swap_b][0].output = swap_b
+  end
+
   seen = Set[]
   bad_gates = []
   46.times do |nb|
@@ -167,7 +180,7 @@ def find_bad_gates()
     prev_number_s = (nb-1).to_s.rjust(2, "0")
 
     cur_neighbours = adjacency_tree["z"+number_s]
-    #puts "z#{number_s}:"
+    puts "z#{number_s}:"
     raise if cur_neighbours.length != 1
     
     depth = 0
@@ -177,7 +190,7 @@ def find_bad_gates()
       if nb > 2 && nb != 45
         if depth == 0
           if cur_neighbours[0].gate_type != 'XOR'
-            puts "Bad gate #{cur_neighbours[0].output}"
+            puts "Bad end gate #{cur_neighbours[0].output} #{cur_neighbours[0].to_s}"
             bad_gates << cur_neighbours[0]
             cur_neighbours.delete(cur_neighbours[0])
           end
@@ -188,22 +201,18 @@ def find_bad_gates()
             if c.gate_type == "XOR"
               found_xor = true
               if !c.a_name == "x"+number_s && !c.b_name == "x"+number_s
-                puts "Bad gate at offset #{nb} #{c}"
+              puts "Bad gate at offset #{nb} depth #{depth} #{c}"
                 bad_gates << c
                 cur_neighbours.delete(c)
               end
             elsif c.gate_type == "OR"
               found_or = true
             else
-              puts "Bad gate at offset #{nb} #{c}"
+              puts "Bad gate at offset #{nb} depth #{depth} #{c}"
               bad_gates << c
               cur_neighbours.delete(c)
             end
           end
-
-          #if !found_xor || !found_or
-            #puts "#{nb} at depth #{depth}: Mising OR or XOR"
-          #end
         elsif depth == 2
           nb_ands = 0
           found_and_x = false
@@ -214,21 +223,17 @@ def find_bad_gates()
                 found_and_x = true
               end
             else 
-              puts "Bad gate at offset #{nb} #{c}"
+              puts "Bad gate at offset #{nb} depth #{depth} #{c}"
               cur_neighbours.delete(c)
               bad_gates << c
             end
           end
-
-          #if nb_ands != 2 || !found_and_x
-            #puts "#{nb} at depth #{depth}: Bad nb of AND elems or missing found_and_x"
-          #end
         end
       end
 
       cur_neighbours.each do |cur_neighbour|
-        #padding = "  " * depth
-        #puts "#{padding}cur: #{cur_neighbour}"
+        padding = "  " * depth
+        puts "#{padding}cur: #{cur_neighbour}"
 
         a_tree = adjacency_tree[cur_neighbour.a_name]
         b_tree = adjacency_tree[cur_neighbour.b_name]
@@ -253,7 +258,26 @@ end
 #faulty_offsets = get_faulty_offsets
 bad_gates = find_bad_gates
 
-p bad_gates.map(&:output).sort.join(',')
+swap_pairs = [
+ ["z08", "ffj"],
+ ["dwp", "kfm"],
+ ["z22", "gjh"],
+ ["z31", "jdr"],
+]
+
+puts "\n\n\n"
+
+new_bad_pairs = find_bad_gates(swap_pairs)
+puts "Remaining bad pairs after flipping: #{new_bad_pairs.length}"
+
+new_bad_pairs.each do |b|
+  puts "#{b.output}: #{b.to_s}"
+end
+
+p swap_pairs.flatten.sort.join(',')
+
+
+
 
 #46.times do |nb|
   #puts "z#{nb}: #{adjacency_tree['z'+()]}"

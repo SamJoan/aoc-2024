@@ -160,31 +160,83 @@ def find_bad_gates()
   #end
 
   seen = Set[]
+  bad_gates = []
   46.times do |nb|
     number_s = nb.to_s.rjust(2, "0")
     next_number_s = (nb+1).to_s.rjust(2, "0")
+    prev_number_s = (nb-1).to_s.rjust(2, "0")
 
     cur_neighbours = adjacency_tree["z"+number_s]
-    puts "z#{number_s}:"
+    #puts "z#{number_s}:"
     raise if cur_neighbours.length != 1
     
     depth = 0
     loop do
       next_neighbours = []
+
+      if nb > 2 && nb != 45
+        if depth == 0
+          if cur_neighbours[0].gate_type != 'XOR'
+            puts "Bad gate #{cur_neighbours[0].output}"
+            bad_gates << cur_neighbours[0]
+            cur_neighbours.delete(cur_neighbours[0])
+          end
+        elsif depth == 1
+          found_xor = false
+          found_or = false
+          cur_neighbours.each do |c|
+            if c.gate_type == "XOR"
+              found_xor = true
+              if !c.a_name == "x"+number_s && !c.b_name == "x"+number_s
+                puts "Bad gate at offset #{nb} #{c}"
+                bad_gates << c
+                cur_neighbours.delete(c)
+              end
+            elsif c.gate_type == "OR"
+              found_or = true
+            else
+              puts "Bad gate at offset #{nb} #{c}"
+              bad_gates << c
+              cur_neighbours.delete(c)
+            end
+          end
+
+          #if !found_xor || !found_or
+            #puts "#{nb} at depth #{depth}: Mising OR or XOR"
+          #end
+        elsif depth == 2
+          nb_ands = 0
+          found_and_x = false
+          cur_neighbours.each do |c|
+            if c.gate_type == 'AND'
+              nb_ands += 1
+              if c.a_name == "x"+prev_number_s || c.b_name == "x"+prev_number_s
+                found_and_x = true
+              end
+            else 
+              puts "Bad gate at offset #{nb} #{c}"
+              cur_neighbours.delete(c)
+              bad_gates << c
+            end
+          end
+
+          #if nb_ands != 2 || !found_and_x
+            #puts "#{nb} at depth #{depth}: Bad nb of AND elems or missing found_and_x"
+          #end
+        end
+      end
+
       cur_neighbours.each do |cur_neighbour|
-        next if seen.include?(cur_neighbour.to_s)
-        seen << cur_neighbour.to_s
-        padding = "  " * depth
-        puts "#{padding}cur: #{cur_neighbour}"
+        #padding = "  " * depth
+        #puts "#{padding}cur: #{cur_neighbour}"
 
         a_tree = adjacency_tree[cur_neighbour.a_name]
         b_tree = adjacency_tree[cur_neighbour.b_name]
 
-        if depth < 300
+        if depth < 2
           next_neighbours += a_tree if a_tree
           next_neighbours += b_tree if b_tree
         end
-
       end
 
       depth += 1
@@ -192,12 +244,16 @@ def find_bad_gates()
 
       cur_neighbours = next_neighbours
     end
-    $stdin.gets
+    #$stdin.gets
   end
+
+  bad_gates
 end
 
 #faulty_offsets = get_faulty_offsets
 bad_gates = find_bad_gates
+
+p bad_gates.map(&:output).sort.join(',')
 
 #46.times do |nb|
   #puts "z#{nb}: #{adjacency_tree['z'+()]}"
